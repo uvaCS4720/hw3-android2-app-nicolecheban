@@ -28,12 +28,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -47,89 +44,68 @@ import androidx.lifecycle.ViewModel
 import edu.nd.pmcburne.hwapp.one.ui.theme.TurquoiseGrey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 
-data class BucketItem(
-    val title: String,
-    val dueDate: String,
-    val isCompleted: Boolean,
-    val completedDate: String?
+data class GameItem(
+    val homeTeam: String,
+    val awayTeam: String,
+    val date: String,
+    val score: String,
+    val isMens: Boolean,
+    val status: String,
+    val startTime: String,
+    val endTime: String,
+    val currentPeriod: String,
+    val timeRemaining: String,
+    val winner: String?
 )
 
 class MainActivity : ComponentActivity() {
     companion object {
-        const val EXTRA_TITLE = "extra_title"
-        const val EXTRA_DUE_DATE = "extra_due_date"
-        const val EXTRA_IS_COMPLETED = "extra_is_completed"
-        const val EXTRA_COMPLETED_DATE = "extra_completed_date"
-        const val EXTRA_ITEM_INDEX = "extra_item_index"
+        const val EXTRA_HOME_TEAM = "extra_home_team"
+        const val EXTRA_AWAY_TEAM = "extra_away_team"
+        const val EXTRA_DATE = "extra_date"
+        const val EXTRA_SCORE = "extra_score"
+        const val EXTRA_IS_MENS = "extra_is_mens"
+        const val EXTRA_STATUS = "extra_status"
+        const val EXTRA_START_TIME = "extra_start_time"
+        const val EXTRA_END_TIME = "extra_end_time"
+        const val EXTRA_CURRENT_PERIOD = "extra_current_period"
+        const val EXTRA_TIME_REMAINING = "extra_time_remaining"
+        const val EXTRA_WINNER = "extra_winner"
     }
 
-    // Create a ViewModel instance for this Activity
     private val viewModel: ListViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // Launch Create activity and get data back from it
-            val createItemLauncher = rememberLauncherForActivityResult(
+            val detailLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartActivityForResult()
-            ) { result ->
-                // This block is called when CreateActivity finishes
-                if (result.resultCode == Activity.RESULT_OK) {
-                    val intent = result.data
-                    val title = intent?.getStringExtra(EXTRA_TITLE)
-                    val dueDate = intent?.getLongExtra(EXTRA_DUE_DATE, -1)
-
-                    if (title != null && dueDate != null && dueDate != -1L) {
-                        viewModel.addItem(title, dueDate)
-                    }
-                }
-            }
-            // Launch Detail activity and get data back from it
-            val editItemLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.StartActivityForResult()
-            ) { result ->
-                // Extract index and all updated fields of edited item
-                if (result.resultCode == Activity.RESULT_OK) {
-                    val intent = result.data
-                    val index = intent?.getIntExtra(EXTRA_ITEM_INDEX, -1)
-                    val title = intent?.getStringExtra(EXTRA_TITLE)
-                    val dueDate = intent?.getStringExtra(EXTRA_DUE_DATE)
-                    val isCompleted = intent?.getBooleanExtra(EXTRA_IS_COMPLETED, false)
-                    val completedDate = intent?.getStringExtra(EXTRA_COMPLETED_DATE)
-
-                    if (index != null && index != -1 && title != null && dueDate != null) {
-                        viewModel.updateItem(index, title, dueDate, isCompleted ?: false, completedDate)
-                    }
-                }
-            }
+            ) { _ -> }
 
             HelloWorldTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    val items by viewModel.bucketListItems.collectAsState()
+                    val items by viewModel.gameItems.collectAsState()
 
-                    BucketListScreen(
+                    GameListScreen(
                         modifier = Modifier.padding(innerPadding),
-                        bucketListItems = items,
-                        onLaunchCreateActivity = {
-                            // Note: CreateActivity is not implemented yet
-                        },
-                        // Pass the item's data to the DetailActivity
-                        onEditItem = { index, item ->
+                        gameItems = items,
+                        onViewDetails = { _, item ->
                             val intent = Intent(this, DetailActivity::class.java)
-                            intent.putExtra(EXTRA_ITEM_INDEX, index)
-                            intent.putExtra(EXTRA_TITLE, item.title)
-                            intent.putExtra(EXTRA_DUE_DATE, item.dueDate)
-                            intent.putExtra(EXTRA_IS_COMPLETED, item.isCompleted)
-                            intent.putExtra(EXTRA_COMPLETED_DATE, item.completedDate)
-                            editItemLauncher.launch(intent)
-                        },
-                        onToggleItem = { index -> viewModel.toggleCompleted(index) }
+                            intent.putExtra(EXTRA_HOME_TEAM, item.homeTeam)
+                            intent.putExtra(EXTRA_AWAY_TEAM, item.awayTeam)
+                            intent.putExtra(EXTRA_DATE, item.date)
+                            intent.putExtra(EXTRA_SCORE, item.score)
+                            intent.putExtra(EXTRA_IS_MENS, item.isMens)
+                            intent.putExtra(EXTRA_STATUS, item.status)
+                            intent.putExtra(EXTRA_START_TIME, item.startTime)
+                            intent.putExtra(EXTRA_END_TIME, item.endTime)
+                            intent.putExtra(EXTRA_CURRENT_PERIOD, item.currentPeriod)
+                            intent.putExtra(EXTRA_TIME_REMAINING, item.timeRemaining)
+                            intent.putExtra(EXTRA_WINNER, item.winner)
+                            detailLauncher.launch(intent)
+                        }
                     )
                 }
             }
@@ -138,81 +114,30 @@ class MainActivity : ComponentActivity() {
 }
 
 class ListViewModel : ViewModel() {
-    private val _bucketListItems = MutableStateFlow<List<BucketItem>>(emptyList())
-    val bucketListItems: StateFlow<List<BucketItem>> = _bucketListItems
-
-    fun addItem(title: String, dueDateMillis: Long) {
-        val sdf = SimpleDateFormat("MM/dd/yyyy", Locale.getDefault())
-        sdf.timeZone = TimeZone.getTimeZone("UTC")
-        val dueDate = sdf.format(Date(dueDateMillis))
-        val newItem = BucketItem(title = title, dueDate = dueDate, isCompleted = false, completedDate = null)
-        // Sort by completion (incomplete first), then by due date
-        _bucketListItems.value = (_bucketListItems.value + newItem).sortedWith(
-            compareBy<BucketItem> { it.isCompleted }
-                .thenBy { SimpleDateFormat("MM/dd/yyyy", Locale.US).parse(it.dueDate) }
+    private val _gameItems = MutableStateFlow<List<GameItem>>(
+        listOf(
+            GameItem("Notre Dame", "Duke", "03/15/2024", "75 - 70", true, "finished", "7:00 PM", "9:15 PM", "2nd Half", "0:00", "Notre Dame"),
+            GameItem("Virginia", "UCLA", "03/16/2024", "20 - 18", false, "currently being played", "1:00 PM", "TBD", "1st Quarter", "5:20", null),
+            GameItem("Michigan", "Ohio State", "03/20/2024", "0 - 0", true, "upcoming", "8:00 PM", "TBD", "N/A", "N/A", null)
         )
-    }
-
-    // Update item with new values edited in Detail Activity
-    fun updateItem(index: Int, title: String, dueDate: String, isCompleted: Boolean, completedDate: String?) {
-        val currentList = _bucketListItems.value.toMutableList()
-        if (index >= 0 && index < currentList.size) {
-            val updatedItem = BucketItem(title, dueDate, isCompleted, completedDate)
-            currentList[index] = updatedItem
-            // Sort by completion (incomplete first), then by due date
-            _bucketListItems.value = currentList.sortedWith(
-                compareBy<BucketItem> { it.isCompleted }
-                    .thenBy { SimpleDateFormat("MM/dd/yyyy", Locale.US).parse(it.dueDate) }
-            )
-        }
-    }
-
-    fun toggleCompleted(index: Int) {
-        val currentList = _bucketListItems.value.toMutableList()
-        if (index >= 0 && index < currentList.size) {
-            val item = currentList[index]
-            val newIsCompleted = !item.isCompleted
-            val newCompletedDate = if (newIsCompleted) {
-                SimpleDateFormat("MM/dd/yyyy", Locale.getDefault()).format(Date())
-            } else {
-                null
-            }
-            val updatedItem = item.copy(isCompleted = newIsCompleted, completedDate = newCompletedDate)
-            currentList[index] = updatedItem
-            // Sort by completion (incomplete first), then by due date
-            _bucketListItems.value = currentList.sortedWith(
-                compareBy<BucketItem> { it.isCompleted }
-                    .thenBy { SimpleDateFormat("MM/dd/yyyy", Locale.US).parse(it.dueDate) }
-            )
-        }
-    }
+    )
+    val gameItems: StateFlow<List<GameItem>> = _gameItems
 }
 
 @Composable
-fun BucketListScreen(
+fun GameListScreen(
     modifier: Modifier = Modifier,
-    bucketListItems: List<BucketItem>,
-    onLaunchCreateActivity: () -> Unit,
-    onEditItem: (Int, BucketItem) -> Unit,
-    onToggleItem: (Int) -> Unit
+    gameItems: List<GameItem>,
+    onViewDetails: (Int, GameItem) -> Unit
 ) {
     Column(
         modifier = modifier.padding(16.dp).fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Your Bucket List Items",
+            text = "Sports Game Tracker",
             style = MaterialTheme.typography.headlineSmall
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = onLaunchCreateActivity) {
-            Text(
-                text ="Create new item",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -220,11 +145,10 @@ fun BucketListScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            itemsIndexed(bucketListItems) { index, item ->
-                BucketListItem(
+            itemsIndexed(gameItems) { index, item ->
+                GameListItem(
                     item = item,
-                    onEdit = { onEditItem(index, item) },
-                    onToggle = { onToggleItem(index) }
+                    onViewDetails = { onViewDetails(index, item) }
                 )
             }
         }
@@ -232,11 +156,11 @@ fun BucketListScreen(
 }
 
 @Composable
-fun BucketListItem(item: BucketItem, modifier: Modifier = Modifier, onEdit: () -> Unit, onToggle: () -> Unit) {
+fun GameListItem(item: GameItem, modifier: Modifier = Modifier, onViewDetails: () -> Unit) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 100.dp),
+            .heightIn(min = 80.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = TurquoiseGrey
@@ -246,66 +170,54 @@ fun BucketListItem(item: BucketItem, modifier: Modifier = Modifier, onEdit: () -
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxSize(),
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Checkbox(
-                checked = item.isCompleted,
-                onCheckedChange = { onToggle() }, // Call the hoisted toggle function
-                colors = CheckboxDefaults.colors(
-                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-            Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = item.title,
+                    text = "${item.homeTeam} vs. ${item.awayTeam}",
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.Black
                 )
                 Text(
-                    text = "Due: ${item.dueDate}",
+                    text = "Date: ${item.date} | ${if (item.isMens) "Mens" else "Womens"}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = if (item.isCompleted && item.completedDate != null) "Completed: ${item.completedDate}" else " ",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "Score: ${item.score}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
 
             IconButton(
-                onClick = onEdit,
-                modifier = Modifier.align(Alignment.CenterVertically),
+                onClick = onViewDetails,
                 colors = IconButtonDefaults.iconButtonColors(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Edit,
-                    contentDescription = "Edit"
+                    imageVector = Icons.Filled.Info,
+                    contentDescription = "Details"
                 )
             }
         }
     }
 }
 
-
 @Preview(showBackground = true)
 @Composable
-fun BucketListScreenWithSampleDataPreview() {
+fun GameListScreenPreview() {
     HelloWorldTheme {
         val sampleItems = listOf(
-            BucketItem("Go skydiving", "12/31/2024", false, null),
-            BucketItem("Visit the Grand Canyon", "10/15/2025", true, "06/01/2024"),
-            BucketItem("Learn to play the guitar", "01/01/2026", false, null)
+            GameItem("Notre Dame", "Duke", "03/15/2024", "75 - 70", true, "finished", "7:00 PM", "9:15 PM", "2nd Half", "0:00", "Notre Dame"),
+            GameItem("Virginia", "UCLA", "03/16/2024", "20 - 18", false, "currently being played", "1:00 PM", "TBD", "1st Quarter", "5:20", null)
         )
-        BucketListScreen(
-            bucketListItems = sampleItems,
-            onLaunchCreateActivity = {},
-            onEditItem = { _, _ -> },
-            onToggleItem = {}
+        GameListScreen(
+            gameItems = sampleItems,
+            onViewDetails = { _, _ -> }
         )
     }
 }

@@ -16,10 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -29,7 +26,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,17 +50,29 @@ class DetailActivity : ComponentActivity() {
             HelloWorldTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     // Observe state from the ViewModel
-                    val title by viewModel.title.collectAsState()
-                    val dueDate by viewModel.dueDate.collectAsState()
-                    val isCompleted by viewModel.isCompleted.collectAsState()
-                    val completedDate by viewModel.completedDate.collectAsState()
+                    val homeTeam by viewModel.homeTeam.collectAsState()
+                    val awayTeam by viewModel.awayTeam.collectAsState()
+                    val status by viewModel.status.collectAsState()
+                    val score by viewModel.score.collectAsState()
+                    val startTime by viewModel.startTime.collectAsState()
+                    val endTime by viewModel.endTime.collectAsState()
+                    val currentPeriod by viewModel.currentPeriod.collectAsState()
+                    val timeRemaining by viewModel.timeRemaining.collectAsState()
+                    val winner by viewModel.winner.collectAsState()
+                    val isMens by viewModel.isMens.collectAsState()
 
-                    ItemDetailsScreen(
+                    GameDetailsScreen(
                         modifier = Modifier.padding(innerPadding),
-                        title = title,
-                        dueDate = dueDate,
-                        isCompleted = isCompleted,
-                        completedDate = completedDate,
+                        homeTeam = homeTeam,
+                        awayTeam = awayTeam,
+                        status = status,
+                        score = score,
+                        startTime = startTime,
+                        endTime = endTime,
+                        currentPeriod = currentPeriod,
+                        timeRemaining = timeRemaining,
+                        winner = winner,
+                        isMens = isMens,
                         onBack = { finish() }
                     )
                 }
@@ -74,33 +82,52 @@ class DetailActivity : ComponentActivity() {
 }
 
 class DetailViewModel : ViewModel() {
-    // Hold title as a StateFlow
-    private val _title = MutableStateFlow("")
-    val title: StateFlow<String> = _title.asStateFlow()
+    private val _homeTeam = MutableStateFlow("")
+    val homeTeam: StateFlow<String> = _homeTeam.asStateFlow()
 
-    // Hold due date as a StateFlow
-    private val _dueDate = MutableStateFlow("")
-    val dueDate: StateFlow<String> = _dueDate.asStateFlow()
+    private val _awayTeam = MutableStateFlow("")
+    val awayTeam: StateFlow<String> = _awayTeam.asStateFlow()
 
-    // Hold completed checkbox as a StateFlow
-    private val _isCompleted = MutableStateFlow(false)
-    val isCompleted: StateFlow<Boolean> = _isCompleted.asStateFlow()
+    private val _status = MutableStateFlow("")
+    val status: StateFlow<String> = _status.asStateFlow()
 
-    // Hold completed date as a StateFlow
-    private val _completedDate = MutableStateFlow<String?>(null)
-    val completedDate: StateFlow<String?> = _completedDate.asStateFlow()
+    private val _score = MutableStateFlow("")
+    val score: StateFlow<String> = _score.asStateFlow()
+
+    private val _startTime = MutableStateFlow("")
+    val startTime: StateFlow<String> = _startTime.asStateFlow()
+
+    private val _endTime = MutableStateFlow("")
+    val endTime: StateFlow<String> = _endTime.asStateFlow()
+
+    private val _currentPeriod = MutableStateFlow("")
+    val currentPeriod: StateFlow<String> = _currentPeriod.asStateFlow()
+
+    private val _timeRemaining = MutableStateFlow("")
+    val timeRemaining: StateFlow<String> = _timeRemaining.asStateFlow()
+
+    private val _winner = MutableStateFlow<String?>(null)
+    val winner: StateFlow<String?> = _winner.asStateFlow()
+
+    private val _isMens = MutableStateFlow(true)
+    val isMens: StateFlow<Boolean> = _isMens.asStateFlow()
 
     fun initializeFromIntent(intent: Intent) {
-        // Read data passed from MainActivity and initialize the state using qualified names
-        _title.value = intent.getStringExtra(MainActivity.EXTRA_TITLE) ?: ""
-        _dueDate.value = intent.getStringExtra(MainActivity.EXTRA_DUE_DATE) ?: ""
-        _isCompleted.value = intent.getBooleanExtra(MainActivity.EXTRA_IS_COMPLETED, false)
-        _completedDate.value = intent.getStringExtra(MainActivity.EXTRA_COMPLETED_DATE)
+        _homeTeam.value = intent.getStringExtra(MainActivity.EXTRA_HOME_TEAM) ?: ""
+        _awayTeam.value = intent.getStringExtra(MainActivity.EXTRA_AWAY_TEAM) ?: ""
+        _status.value = intent.getStringExtra(MainActivity.EXTRA_STATUS) ?: ""
+        _score.value = intent.getStringExtra(MainActivity.EXTRA_SCORE) ?: ""
+        _startTime.value = intent.getStringExtra(MainActivity.EXTRA_START_TIME) ?: ""
+        _endTime.value = intent.getStringExtra(MainActivity.EXTRA_END_TIME) ?: ""
+        _currentPeriod.value = intent.getStringExtra(MainActivity.EXTRA_CURRENT_PERIOD) ?: ""
+        _timeRemaining.value = intent.getStringExtra(MainActivity.EXTRA_TIME_REMAINING) ?: ""
+        _winner.value = intent.getStringExtra(MainActivity.EXTRA_WINNER)
+        _isMens.value = intent.getBooleanExtra(MainActivity.EXTRA_IS_MENS, true)
     }
 }
 
 @Composable
-fun DetailRow(label: String, value: @Composable () -> Unit) {
+fun DetailRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -114,22 +141,28 @@ fun DetailRow(label: String, value: @Composable () -> Unit) {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Row(
+        Text(
+            text = value,
             modifier = Modifier.weight(1.5f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            value()
-        }
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
-fun ItemDetailsScreen(
+fun GameDetailsScreen(
     modifier: Modifier = Modifier,
-    title: String,
-    dueDate: String,
-    isCompleted: Boolean,
-    completedDate: String?,
+    homeTeam: String,
+    awayTeam: String,
+    status: String,
+    score: String,
+    startTime: String,
+    endTime: String,
+    currentPeriod: String,
+    timeRemaining: String,
+    winner: String?,
+    isMens: Boolean,
     onBack: () -> Unit
 ) {
     Column(
@@ -144,7 +177,7 @@ fun ItemDetailsScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Item Details",
+                text = "Game Details",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary
@@ -159,38 +192,35 @@ fun ItemDetailsScreen(
                     .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), MaterialTheme.shapes.medium)
             ) {
-                DetailRow(label = "Title") {
-                    Text(text = title, style = MaterialTheme.typography.bodyLarge)
-                }
+                DetailRow(label = "Home Team", value = homeTeam)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                 
-                DetailRow(label = "Due Date") {
-                    Text(text = dueDate, style = MaterialTheme.typography.bodyLarge)
-                }
+                DetailRow(label = "Away Team", value = awayTeam)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
-                DetailRow(label = "Status") {
-                    Checkbox(
-                        checked = isCompleted,
-                        onCheckedChange = null,
-                        enabled = false,
-                        colors = CheckboxDefaults.colors(
-                            disabledUncheckedColor = MaterialTheme.colorScheme.outline,
-                            disabledCheckedColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                    Text(
-                        text = if (isCompleted) "Completed" else "Incomplete",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
-                }
+                DetailRow(label = "Category", value = if (isMens) "Mens" else "Womens")
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
-                if (isCompleted && completedDate != null) {
+                DetailRow(label = "Status", value = status)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+
+                DetailRow(label = "Score", value = score)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+
+                DetailRow(label = "Start Time", value = startTime)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+
+                DetailRow(label = "End Time", value = endTime)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+
+                DetailRow(label = "Current Period", value = currentPeriod)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+
+                DetailRow(label = "Time Remaining", value = timeRemaining)
+                
+                if (winner != null) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                    DetailRow(label = "Completed Date") {
-                        Text(text = completedDate, style = MaterialTheme.typography.bodyLarge)
-                    }
+                    DetailRow(label = "Winner", value = winner)
                 }
             }
         }
@@ -203,7 +233,7 @@ fun ItemDetailsScreen(
                 .height(50.dp)
         ) {
             Text(
-                text = "Back to List",
+                text = "Back to Games",
                 style = MaterialTheme.typography.titleMedium
             )
         }
@@ -213,13 +243,19 @@ fun ItemDetailsScreen(
 
 @Preview(showBackground = true)
 @Composable
-fun ItemDetailsScreenPreview() {
+fun GameDetailsScreenPreview() {
     HelloWorldTheme {
-        ItemDetailsScreen(
-            title = "Visit the Grand Canyon",
-            dueDate = "10/15/2025",
-            isCompleted = true,
-            completedDate = "06/01/2024",
+        GameDetailsScreen(
+            homeTeam = "Notre Dame",
+            awayTeam = "Duke",
+            status = "finished",
+            score = "75 - 70",
+            startTime = "7:00 PM",
+            endTime = "9:15 PM",
+            currentPeriod = "2nd Half",
+            timeRemaining = "0:00",
+            winner = "Notre Dame",
+            isMens = true,
             onBack = {}
         )
     }

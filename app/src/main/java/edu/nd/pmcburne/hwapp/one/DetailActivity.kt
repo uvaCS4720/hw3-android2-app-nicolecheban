@@ -56,7 +56,6 @@ class DetailActivity : ComponentActivity() {
                     val status by viewModel.status.collectAsState()
                     val score by viewModel.score.collectAsState()
                     val startTime by viewModel.startTime.collectAsState()
-                    val endTime by viewModel.endTime.collectAsState()
                     val currentPeriod by viewModel.currentPeriod.collectAsState()
                     val timeRemaining by viewModel.timeRemaining.collectAsState()
                     val winner by viewModel.winner.collectAsState()
@@ -70,7 +69,6 @@ class DetailActivity : ComponentActivity() {
                         status = status,
                         score = score,
                         startTime = startTime,
-                        endTime = endTime,
                         currentPeriod = currentPeriod,
                         timeRemaining = timeRemaining,
                         winner = winner,
@@ -102,9 +100,6 @@ class DetailViewModel : ViewModel() {
     private val _startTime = MutableStateFlow("")
     val startTime: StateFlow<String> = _startTime.asStateFlow()
 
-    private val _endTime = MutableStateFlow("")
-    val endTime: StateFlow<String> = _endTime.asStateFlow()
-
     private val _currentPeriod = MutableStateFlow("")
     val currentPeriod: StateFlow<String> = _currentPeriod.asStateFlow()
 
@@ -121,14 +116,51 @@ class DetailViewModel : ViewModel() {
         _homeTeam.value = intent.getStringExtra(MainActivity.EXTRA_HOME_TEAM) ?: ""
         _awayTeam.value = intent.getStringExtra(MainActivity.EXTRA_AWAY_TEAM) ?: ""
         _date.value = intent.getStringExtra(MainActivity.EXTRA_DATE) ?: ""
-        _status.value = intent.getStringExtra(MainActivity.EXTRA_STATUS) ?: ""
+        
+        // Map raw status to capitalized/formatted versions
+        val rawStatus = intent.getStringExtra(MainActivity.EXTRA_STATUS) ?: ""
+        _status.value = when (rawStatus.lowercase()) {
+            "upcoming", "pre" -> "Upcoming"
+            "currently being played", "live" -> "In progress"
+            "finished", "final" -> "Finished"
+            else -> rawStatus.replaceFirstChar { it.uppercase() }
+        }
+        
         _score.value = intent.getStringExtra(MainActivity.EXTRA_SCORE) ?: ""
         _startTime.value = intent.getStringExtra(MainActivity.EXTRA_START_TIME) ?: ""
-        _endTime.value = intent.getStringExtra(MainActivity.EXTRA_END_TIME) ?: ""
-        _currentPeriod.value = intent.getStringExtra(MainActivity.EXTRA_CURRENT_PERIOD) ?: ""
-        _timeRemaining.value = intent.getStringExtra(MainActivity.EXTRA_TIME_REMAINING) ?: ""
-        _winner.value = intent.getStringExtra(MainActivity.EXTRA_WINNER)
         _isMens.value = intent.getBooleanExtra(MainActivity.EXTRA_IS_MENS, true)
+
+        // Handle period formatting (Halves for Men, Quarters for Women)
+        val rawPeriod = intent.getStringExtra(MainActivity.EXTRA_CURRENT_PERIOD) ?: ""
+        _currentPeriod.value = if (_status.value == "Finished") "FINAL" else formatPeriod(rawPeriod, _isMens.value)
+        
+        // Display "FINAL" if the game is finished, otherwise use the provided time remaining
+        val rawTimeRemaining = intent.getStringExtra(MainActivity.EXTRA_TIME_REMAINING) ?: ""
+        _timeRemaining.value = if (_status.value == "Finished") "FINAL" else rawTimeRemaining
+        
+        _winner.value = intent.getStringExtra(MainActivity.EXTRA_WINNER)
+    }
+
+    private fun formatPeriod(period: String, isMens: Boolean): String {
+        if (period.lowercase() == "final") return "FINAL"
+        
+        val periodInt = period.toIntOrNull() ?: return period // Return as is if already formatted or non-numeric (e.g., "OT")
+        
+        return if (isMens) {
+            when (periodInt) {
+                1 -> "1st Half"
+                2 -> "2nd Half"
+                else -> "${periodInt - 2} OT"
+            }
+        } else {
+            when (periodInt) {
+                1 -> "1st Quarter"
+                2 -> "2nd Quarter"
+                3 -> "3rd Quarter"
+                4 -> "4th Quarter"
+                else -> "${periodInt - 4} OT"
+            }
+        }
     }
 }
 
@@ -165,7 +197,6 @@ fun GameDetailsScreen(
     status: String,
     score: String,
     startTime: String,
-    endTime: String,
     currentPeriod: String,
     timeRemaining: String,
     winner: String?,
@@ -212,7 +243,7 @@ fun GameDetailsScreen(
                 DetailRow(label = "Away Team", value = awayTeam)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
-                DetailRow(label = "Category", value = if (isMens) "Mens" else "Womens")
+                DetailRow(label = "Category", value = if (isMens) "Men's" else "Women's")
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
                 DetailRow(label = "Status", value = status)
@@ -222,9 +253,6 @@ fun GameDetailsScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
                 DetailRow(label = "Start Time", value = startTime)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-
-                DetailRow(label = "End Time", value = endTime)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
                 DetailRow(label = "Current Period", value = currentPeriod)
@@ -263,12 +291,11 @@ fun GameDetailsScreenPreview() {
             homeTeam = "Notre Dame",
             awayTeam = "Duke",
             date = "03/11/2026",
-            status = "finished",
+            status = "Finished",
             score = "75 - 70",
             startTime = "7:00 PM",
-            endTime = "9:15 PM",
-            currentPeriod = "2nd Half",
-            timeRemaining = "0:00",
+            currentPeriod = "FINAL",
+            timeRemaining = "FINAL",
             winner = "Notre Dame",
             isMens = true,
             onBack = {}

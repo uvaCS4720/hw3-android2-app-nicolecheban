@@ -31,7 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -238,17 +237,18 @@ class ListViewModel : ViewModel() {
     }
 
     private fun NcaaGame.toGameItem(isMens: Boolean): GameItem {
+        val isUpcoming = gameState.lowercase() == "pre" || gameState.lowercase() == "upcoming"
         return GameItem(
             homeTeam = home.names.short,
             awayTeam = away.names.short,
             date = startDate,
-            score = "${away.score} - ${home.score}",
+            score = if (isUpcoming) "-" else "${away.score} - ${home.score}",
             isMens = isMens,
             status = gameState,
             startTime = startTime,
             endTime = if (gameState == "final") "Finished" else "TBD",
-            currentPeriod = currentPeriod,
-            timeRemaining = contestClock,
+            currentPeriod = if (isUpcoming) "-" else currentPeriod,
+            timeRemaining = if (isUpcoming) "-" else contestClock,
             winner = when {
                 home.winner -> home.names.short
                 away.winner -> away.names.short

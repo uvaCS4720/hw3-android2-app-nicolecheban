@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -218,14 +219,18 @@ fun GameDetailsScreen(
                 text = "$homeTeam vs $awayTeam",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
             
             Text(
                 text = date,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -290,13 +295,13 @@ fun GameDetailsScreenPreview() {
         GameDetailsScreen(
             homeTeam = "Notre Dame",
             awayTeam = "Duke",
-            date = "03/11/2026",
-            status = "Finished",
-            score = "75 - 70",
-            startTime = "7:00 PM",
-            currentPeriod = "FINAL",
-            timeRemaining = "FINAL",
-            winner = "Notre Dame",
+            date = "03/20/2026",
+            status = "Upcoming",
+            score = "0 - 0",
+            startTime = "8:00 PM",
+            currentPeriod = "N/A",
+            timeRemaining = "N/A",
+            winner = null,
             isMens = true,
             onBack = {}
         )

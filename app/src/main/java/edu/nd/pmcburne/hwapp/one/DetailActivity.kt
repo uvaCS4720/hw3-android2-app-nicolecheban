@@ -53,9 +53,10 @@ class DetailActivity : ComponentActivity() {
                     // Observe state from the ViewModel
                     val homeTeam by viewModel.homeTeam.collectAsState()
                     val awayTeam by viewModel.awayTeam.collectAsState()
+                    val homeScore by viewModel.homeScore.collectAsState()
+                    val awayScore by viewModel.awayScore.collectAsState()
                     val date by viewModel.date.collectAsState()
                     val status by viewModel.status.collectAsState()
-                    val score by viewModel.score.collectAsState()
                     val startTime by viewModel.startTime.collectAsState()
                     val currentPeriod by viewModel.currentPeriod.collectAsState()
                     val timeRemaining by viewModel.timeRemaining.collectAsState()
@@ -66,9 +67,10 @@ class DetailActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding),
                         homeTeam = homeTeam,
                         awayTeam = awayTeam,
+                        homeScore = homeScore,
+                        awayScore = awayScore,
                         date = date,
                         status = status,
-                        score = score,
                         startTime = startTime,
                         currentPeriod = currentPeriod,
                         timeRemaining = timeRemaining,
@@ -89,14 +91,17 @@ class DetailViewModel : ViewModel() {
     private val _awayTeam = MutableStateFlow("")
     val awayTeam: StateFlow<String> = _awayTeam.asStateFlow()
 
+    private val _homeScore = MutableStateFlow("")
+    val homeScore: StateFlow<String> = _homeScore.asStateFlow()
+
+    private val _awayScore = MutableStateFlow("")
+    val awayScore: StateFlow<String> = _awayScore.asStateFlow()
+
     private val _date = MutableStateFlow("")
     val date: StateFlow<String> = _date.asStateFlow()
 
     private val _status = MutableStateFlow("")
     val status: StateFlow<String> = _status.asStateFlow()
-
-    private val _score = MutableStateFlow("")
-    val score: StateFlow<String> = _score.asStateFlow()
 
     private val _startTime = MutableStateFlow("")
     val startTime: StateFlow<String> = _startTime.asStateFlow()
@@ -127,40 +132,52 @@ class DetailViewModel : ViewModel() {
             else -> rawStatus.replaceFirstChar { it.uppercase() }
         }
         
-        _score.value = intent.getStringExtra(MainActivity.EXTRA_SCORE) ?: ""
-        _startTime.value = intent.getStringExtra(MainActivity.EXTRA_START_TIME) ?: ""
+        val isUpcoming = _status.value == "Upcoming"
+        val isFinished = _status.value == "Finished"
+
+        _homeScore.value = if (isUpcoming) "-" else (intent.getStringExtra(MainActivity.EXTRA_HOME_SCORE) ?: "0")
+        _awayScore.value = if (isUpcoming) "-" else (intent.getStringExtra(MainActivity.EXTRA_AWAY_SCORE) ?: "0")
+        _startTime.value = intent.getStringExtra(MainActivity.EXTRA_START_TIME) ?: "-"
         _isMens.value = intent.getBooleanExtra(MainActivity.EXTRA_IS_MENS, true)
 
-        // Handle period formatting (Halves for Men, Quarters for Women)
         val rawPeriod = intent.getStringExtra(MainActivity.EXTRA_CURRENT_PERIOD) ?: ""
-        _currentPeriod.value = if (_status.value == "Finished") "FINAL" else formatPeriod(rawPeriod, _isMens.value)
+        _currentPeriod.value = when {
+            isFinished -> "FINAL"
+            isUpcoming -> "-"
+            else -> formatPeriod(rawPeriod, _isMens.value)
+        }
         
-        // Display "FINAL" if the game is finished, otherwise use the provided time remaining
         val rawTimeRemaining = intent.getStringExtra(MainActivity.EXTRA_TIME_REMAINING) ?: ""
-        _timeRemaining.value = if (_status.value == "Finished") "FINAL" else rawTimeRemaining
+        _timeRemaining.value = when {
+            isFinished -> "FINAL"
+            isUpcoming -> "-"
+            else -> if (rawTimeRemaining.isBlank() || rawTimeRemaining.equals("N/A", true)) "-" else rawTimeRemaining
+        }
         
-        _winner.value = intent.getStringExtra(MainActivity.EXTRA_WINNER)
+        _winner.value = if (isUpcoming) null else intent.getStringExtra(MainActivity.EXTRA_WINNER)
     }
 
     private fun formatPeriod(period: String, isMens: Boolean): String {
-        if (period.lowercase() == "final") return "FINAL"
+        val p = period.trim()
+        if (p.isEmpty() || p == "N/A" || p == "-") return "-"
+        if (p.equals("final", ignoreCase = true)) return "FINAL"
+        if (p.equals("halftime", ignoreCase = true)) return "Halftime"
         
-        val periodInt = period.toIntOrNull() ?: return period // Return as is if already formatted or non-numeric (e.g., "OT")
+        // Try to get numeric value even if string is "1st", "2nd Half", etc.
+        val periodInt = p.filter { it.isDigit() }.toIntOrNull() ?: return p
         
+        val ordinal = when (periodInt) {
+            1 -> "1st"
+            2 -> "2nd"
+            3 -> "3rd"
+            4 -> "4th"
+            else -> "${periodInt}th"
+        }
+
         return if (isMens) {
-            when (periodInt) {
-                1 -> "1st Half"
-                2 -> "2nd Half"
-                else -> "${periodInt - 2} OT"
-            }
+            if (periodInt <= 2) "$ordinal Half" else "${periodInt - 2} OT"
         } else {
-            when (periodInt) {
-                1 -> "1st Quarter"
-                2 -> "2nd Quarter"
-                3 -> "3rd Quarter"
-                4 -> "4th Quarter"
-                else -> "${periodInt - 4} OT"
-            }
+            if (periodInt <= 4) "$ordinal Quarter" else "${periodInt - 4} OT"
         }
     }
 }
@@ -194,9 +211,10 @@ fun GameDetailsScreen(
     modifier: Modifier = Modifier,
     homeTeam: String,
     awayTeam: String,
+    homeScore: String,
+    awayScore: String,
     date: String,
     status: String,
-    score: String,
     startTime: String,
     currentPeriod: String,
     timeRemaining: String,
@@ -254,7 +272,13 @@ fun GameDetailsScreen(
                 DetailRow(label = "Status", value = status)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
-                DetailRow(label = "Score", value = score)
+                // Detailed Score
+                val scoreText = if (homeScore == "-" || awayScore == "-") {
+                    "-"
+                } else {
+                    "$awayScore $awayTeam\n$homeScore $homeTeam"
+                }
+                DetailRow(label = "Score", value = scoreText)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
                 DetailRow(label = "Start Time", value = startTime)
@@ -265,7 +289,7 @@ fun GameDetailsScreen(
 
                 DetailRow(label = "Time Remaining", value = timeRemaining)
                 
-                if (winner != null) {
+                if (winner != null && winner.isNotBlank()) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     DetailRow(label = "Winner", value = winner)
                 }
@@ -295,12 +319,13 @@ fun GameDetailsScreenPreview() {
         GameDetailsScreen(
             homeTeam = "Notre Dame",
             awayTeam = "Duke",
+            homeScore = "0",
+            awayScore = "0",
             date = "03/20/2026",
             status = "Upcoming",
-            score = "0 - 0",
             startTime = "8:00 PM",
-            currentPeriod = "N/A",
-            timeRemaining = "N/A",
+            currentPeriod = "-",
+            timeRemaining = "-",
             winner = null,
             isMens = true,
             onBack = {}

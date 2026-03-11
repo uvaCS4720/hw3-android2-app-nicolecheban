@@ -115,6 +115,8 @@ data class GameItem(
     val awayTeam: String,
     val date: String,
     val score: String,
+    val homeScore: String,
+    val awayScore: String,
     val isMens: Boolean,
     val status: String,
     val startTime: String,
@@ -130,6 +132,8 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_AWAY_TEAM = "extra_away_team"
         const val EXTRA_DATE = "extra_date"
         const val EXTRA_SCORE = "extra_score"
+        const val EXTRA_HOME_SCORE = "extra_home_score"
+        const val EXTRA_AWAY_SCORE = "extra_away_score"
         const val EXTRA_IS_MENS = "extra_is_mens"
         const val EXTRA_STATUS = "extra_status"
         const val EXTRA_START_TIME = "extra_start_time"
@@ -161,6 +165,8 @@ class MainActivity : ComponentActivity() {
                                 putExtra(EXTRA_AWAY_TEAM, item.awayTeam)
                                 putExtra(EXTRA_DATE, item.date)
                                 putExtra(EXTRA_SCORE, item.score)
+                                putExtra(EXTRA_HOME_SCORE, item.homeScore)
+                                putExtra(EXTRA_AWAY_SCORE, item.awayScore)
                                 putExtra(EXTRA_IS_MENS, item.isMens)
                                 putExtra(EXTRA_STATUS, item.status)
                                 putExtra(EXTRA_START_TIME, item.startTime)
@@ -243,6 +249,8 @@ class ListViewModel : ViewModel() {
             awayTeam = away.names.short,
             date = startDate,
             score = if (isUpcoming) "-" else "${away.score} - ${home.score}",
+            homeScore = if (isUpcoming) "-" else home.score,
+            awayScore = if (isUpcoming) "-" else away.score,
             isMens = isMens,
             status = gameState,
             startTime = startTime,
@@ -381,8 +389,8 @@ fun GameListItem(item: GameItem, modifier: Modifier = Modifier, onViewDetails: (
 fun GameListScreenPreview() {
     HelloWorldTheme {
         val sampleItems = listOf(
-            GameItem("Notre Dame", "Duke", "03/15/2024", "75 - 70", true, "finished", "7:00 PM", "9:15 PM", "2nd Half", "0:00", "Notre Dame"),
-            GameItem("Virginia", "UCLA", "03/16/2024", "20 - 18", false, "currently being played", "1:00 PM", "TBD", "1st Quarter", "5:20", null)
+            GameItem("Notre Dame", "Duke", "03/15/2024", "75 - 70", "70", "75", true, "finished", "7:00 PM", "9:15 PM", "2nd Half", "0:00", "Notre Dame"),
+            GameItem("Virginia", "UCLA", "03/16/2024", "20 - 18", "18", "20", false, "currently being played", "1:00 PM", "TBD", "1st Quarter", "5:20", null)
         )
         GameListScreen(
             gameItems = sampleItems,

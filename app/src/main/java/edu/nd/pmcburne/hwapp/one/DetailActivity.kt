@@ -52,6 +52,7 @@ class DetailActivity : ComponentActivity() {
                     // Observe state from the ViewModel
                     val homeTeam by viewModel.homeTeam.collectAsState()
                     val awayTeam by viewModel.awayTeam.collectAsState()
+                    val date by viewModel.date.collectAsState()
                     val status by viewModel.status.collectAsState()
                     val score by viewModel.score.collectAsState()
                     val startTime by viewModel.startTime.collectAsState()
@@ -65,6 +66,7 @@ class DetailActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding),
                         homeTeam = homeTeam,
                         awayTeam = awayTeam,
+                        date = date,
                         status = status,
                         score = score,
                         startTime = startTime,
@@ -87,6 +89,9 @@ class DetailViewModel : ViewModel() {
 
     private val _awayTeam = MutableStateFlow("")
     val awayTeam: StateFlow<String> = _awayTeam.asStateFlow()
+
+    private val _date = MutableStateFlow("")
+    val date: StateFlow<String> = _date.asStateFlow()
 
     private val _status = MutableStateFlow("")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -115,6 +120,7 @@ class DetailViewModel : ViewModel() {
     fun initializeFromIntent(intent: Intent) {
         _homeTeam.value = intent.getStringExtra(MainActivity.EXTRA_HOME_TEAM) ?: ""
         _awayTeam.value = intent.getStringExtra(MainActivity.EXTRA_AWAY_TEAM) ?: ""
+        _date.value = intent.getStringExtra(MainActivity.EXTRA_DATE) ?: ""
         _status.value = intent.getStringExtra(MainActivity.EXTRA_STATUS) ?: ""
         _score.value = intent.getStringExtra(MainActivity.EXTRA_SCORE) ?: ""
         _startTime.value = intent.getStringExtra(MainActivity.EXTRA_START_TIME) ?: ""
@@ -155,6 +161,7 @@ fun GameDetailsScreen(
     modifier: Modifier = Modifier,
     homeTeam: String,
     awayTeam: String,
+    date: String,
     status: String,
     score: String,
     startTime: String,
@@ -177,10 +184,17 @@ fun GameDetailsScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Game Details",
+                text = "$homeTeam vs $awayTeam",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary
+            )
+            
+            Text(
+                text = date,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -248,6 +262,7 @@ fun GameDetailsScreenPreview() {
         GameDetailsScreen(
             homeTeam = "Notre Dame",
             awayTeam = "Duke",
+            date = "03/11/2026",
             status = "finished",
             score = "75 - 70",
             startTime = "7:00 PM",

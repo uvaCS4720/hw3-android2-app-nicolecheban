@@ -11,23 +11,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import edu.nd.pmcburne.hwapp.one.ui.theme.HWStarterRepoTheme
+import edu.nd.pmcburne.hwapp.one.ui.theme.HelloWorldTheme
 import android.app.Activity
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -42,14 +38,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import edu.nd.pmcburne.hwapp.one.ui.theme.TurquoiseGrey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.text.SimpleDateFormat
@@ -57,7 +52,22 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+data class BucketItem(
+    val title: String,
+    val dueDate: String,
+    val isCompleted: Boolean,
+    val completedDate: String?
+)
+
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_TITLE = "extra_title"
+        const val EXTRA_DUE_DATE = "extra_due_date"
+        const val EXTRA_IS_COMPLETED = "extra_is_completed"
+        const val EXTRA_COMPLETED_DATE = "extra_completed_date"
+        const val EXTRA_ITEM_INDEX = "extra_item_index"
+    }
+
     // Create a ViewModel instance for this Activity
     private val viewModel: ListViewModel by viewModels()
 
@@ -107,8 +117,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding),
                         bucketListItems = items,
                         onLaunchCreateActivity = {
-                            val intent = Intent(this, CreateActivity::class.java)
-                            createItemLauncher.launch(intent)
+                            // Note: CreateActivity is not implemented yet
                         },
                         // Pass the item's data to the DetailActivity
                         onEditItem = { index, item ->

@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,20 +20,31 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,6 +57,7 @@ import edu.nd.pmcburne.hwapp.one.ui.theme.HelloWorldTheme
 import edu.nd.pmcburne.hwapp.one.ui.theme.TurquoiseGrey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -54,6 +67,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 // --- Models for API ---
 data class NcaaResponse(
@@ -153,12 +167,21 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     val items by viewModel.gameItems.collectAsState()
                     val isLoading by viewModel.isLoading.collectAsState()
+                    val selectedDate by viewModel.selectedDate.collectAsState()
+                    val showMens by viewModel.showMens.collectAsState()
+                    val showWomens by viewModel.showWomens.collectAsState()
 
                     GameListScreen(
                         modifier = Modifier.padding(innerPadding),
                         gameItems = items,
                         isLoading = isLoading,
+                        selectedDate = selectedDate,
+                        showMens = showMens,
+                        showWomens = showWomens,
                         onRefresh = { viewModel.refresh() },
+                        onDateChange = { viewModel.updateDate(it) },
+                        onMensToggle = { viewModel.toggleMens() },
+                        onWomensToggle = { viewModel.toggleWomens() },
                         onViewDetails = { _, item ->
                             val intent = android.content.Intent(this, DetailActivity::class.java).apply {
                                 putExtra(EXTRA_HOME_TEAM, item.homeTeam)
@@ -191,7 +214,41 @@ class ListViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    private val _selectedDate = MutableStateFlow(Calendar.getInstance())
+    val selectedDate: StateFlow<Calendar> = _selectedDate.asStateFlow()
+
+    private val _showMens = MutableStateFlow(false)
+    val showMens: StateFlow<Boolean> = _showMens.asStateFlow()
+
+    private val _showWomens = MutableStateFlow(false)
+    val showWomens: StateFlow<Boolean> = _showWomens.asStateFlow()
+
     init {
+        refresh()
+    }
+
+    fun updateDate(newDate: Calendar) {
+        _selectedDate.value = newDate
+        refresh()
+    }
+
+    fun toggleMens() {
+        if (_showMens.value) {
+            _showMens.value = false
+        } else {
+            _showMens.value = true
+            _showWomens.value = false
+        }
+        refresh()
+    }
+
+    fun toggleWomens() {
+        if (_showWomens.value) {
+            _showWomens.value = false
+        } else {
+            _showWomens.value = true
+            _showMens.value = false
+        }
         refresh()
     }
 
@@ -199,33 +256,24 @@ class ListViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Fetch for multiple dates to have a "most recent" list
-                // Using current date and also the specific date from example for guaranteed data
-                val calendar = Calendar.getInstance()
-                val datesToFetch = mutableListOf<Triple<String, String, String>>()
-                
-                // Add today
-                datesToFetch.add(getDateParts(calendar.time))
-                
-                // Add yesterday
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
-                datesToFetch.add(getDateParts(calendar.time))
-
-                // Also add March 11, 2026 (from user example) to ensure we see data
-                datesToFetch.add(Triple("2026", "03", "11"))
+                val cal = _selectedDate.value
+                val dateParts = getDateParts(cal.time)
 
                 val allGames = mutableListOf<GameItem>()
 
-                for (date in datesToFetch.distinct()) {
-                    val mens = RetrofitClient.ncaaService.getScoreboard("men", date.first, date.second, date.third)
-                    val womens = RetrofitClient.ncaaService.getScoreboard("women", date.first, date.second, date.third)
+                val fetchMens = _showMens.value || (!_showMens.value && !_showWomens.value)
+                val fetchWomens = _showWomens.value || (!_showMens.value && !_showWomens.value)
 
+                if (fetchMens) {
+                    val mens = RetrofitClient.ncaaService.getScoreboard("men", dateParts.first, dateParts.second, dateParts.third)
                     mens.games?.forEach { allGames.add(it.game.toGameItem(true)) }
+                }
+
+                if (fetchWomens) {
+                    val womens = RetrofitClient.ncaaService.getScoreboard("women", dateParts.first, dateParts.second, dateParts.third)
                     womens.games?.forEach { allGames.add(it.game.toGameItem(false)) }
                 }
 
-                // Sort by date (most to least recent) - using a simple string sort for MM/DD/YYYY might need care
-                // but for now we'll just show them.
                 _gameItems.value = allGames.sortedByDescending { it.date }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -266,59 +314,150 @@ class ListViewModel : ViewModel() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameListScreen(
     modifier: Modifier = Modifier,
     gameItems: List<GameItem>,
     isLoading: Boolean,
+    selectedDate: Calendar,
+    showMens: Boolean,
+    showWomens: Boolean,
     onRefresh: () -> Unit,
+    onDateChange: (Calendar) -> Unit,
+    onMensToggle: () -> Unit,
+    onWomensToggle: () -> Unit,
     onViewDetails: (Int, GameItem) -> Unit
 ) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    
+    // Use UTC for the DatePicker state to avoid timezone offset issues when converting back to Calendar
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = selectedDate.timeInMillis + TimeZone.getDefault().getOffset(selectedDate.timeInMillis)
+    )
+
     Column(
         modifier = modifier.padding(16.dp).fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Spacer(modifier = Modifier.width(48.dp))
-
             Text(
                 text = "College Basketball Scores",
                 style = MaterialTheme.typography.headlineSmall
             )
 
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = TurquoiseGrey
-                )
-            } else {
-                IconButton(
-                    onClick = onRefresh,
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = TurquoiseGrey,
-                        contentColor = Color.Black
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Box(
+                modifier = Modifier.size(48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = TurquoiseGrey
                     )
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = "Refresh"
-                    )
+                } else {
+                    IconButton(
+                        onClick = onRefresh,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = TurquoiseGrey,
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Refresh"
+                        )
+                    }
                 }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // --- Filters Section ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilterChip(
+                selected = true,
+                onClick = { showDatePicker = true },
+                label = { Text(SimpleDateFormat("MMM dd, yyyy", Locale.US).format(selectedDate.time)) },
+                leadingIcon = { Icon(Icons.Filled.DateRange, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) }
+            )
+
+            FilterChip(
+                selected = showMens,
+                onClick = onMensToggle,
+                label = { Text("Men's") }
+            )
+            FilterChip(
+                selected = showWomens,
+                onClick = onWomensToggle,
+                label = { Text("Women's") }
+            )
+        }
+
+        if (showDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val selected = datePickerState.selectedDateMillis
+                        if (selected != null) {
+                            // DatePicker selectedDateMillis is UTC midnight. 
+                            // Convert it to local timezone Calendar.
+                            val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                                timeInMillis = selected
+                            }
+                            val localCal = Calendar.getInstance().apply {
+                                set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+                            }
+                            onDateChange(localCal)
+                        }
+                        showDatePicker = false
+                    }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
         }
 
         Spacer(Modifier.height(16.dp))
 
-        if (gameItems.isEmpty() && !isLoading) {
-            Text("No games found for the selected dates.")
+        if (isLoading && gameItems.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = TurquoiseGrey)
+            }
+        } else if (gameItems.isEmpty() && !isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No games found for the selected filters.")
+            }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 itemsIndexed(gameItems) { index, item ->
@@ -395,7 +534,13 @@ fun GameListScreenPreview() {
         GameListScreen(
             gameItems = sampleItems,
             isLoading = false,
+            selectedDate = Calendar.getInstance(),
+            showMens = true,
+            showWomens = true,
             onRefresh = {},
+            onDateChange = {},
+            onMensToggle = {},
+            onWomensToggle = {},
             onViewDetails = { _, _ -> }
         )
     }

@@ -1,5 +1,6 @@
 package edu.nd.pmcburne.hwapp.one
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -51,8 +52,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import edu.nd.pmcburne.hwapp.one.data.GameDatabase
+import edu.nd.pmcburne.hwapp.one.data.GameEntity
+import edu.nd.pmcburne.hwapp.one.data.toGameItem
 import edu.nd.pmcburne.hwapp.one.ui.theme.HelloWorldTheme
 import edu.nd.pmcburne.hwapp.one.ui.theme.TurquoiseGrey
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -125,6 +129,7 @@ object RetrofitClient {
 
 // --- App Model ---
 data class GameItem(
+    val gameID: String = "",
     val homeTeam: String,
     val awayTeam: String,
     val date: String,
@@ -207,7 +212,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-class ListViewModel : ViewModel() {
+class ListViewModel(application: Application) : AndroidViewModel(application) {
+    private val db = GameDatabase.getDatabase(application)
+    private val gameDao = db.gameDao()
+
     private val _gameItems = MutableStateFlow<List<GameItem>>(emptyList())
     val gameItems: StateFlow<List<GameItem>> = _gameItems
 
@@ -255,32 +263,49 @@ class ListViewModel : ViewModel() {
     fun refresh() {
         viewModelScope.launch {
             _isLoading.value = true
+            val cal = _selectedDate.value
+            val dateParts = getDateParts(cal.time)
+            val dbDate = "${dateParts.second}/${dateParts.third}/${dateParts.first}"
+
+            // 1. Try to load from Database first for offline support
+            loadFromDb(dbDate)
+
             try {
-                val cal = _selectedDate.value
-                val dateParts = getDateParts(cal.time)
-
-                val allGames = mutableListOf<GameItem>()
-
+                val allGamesApi = mutableListOf<GameEntity>()
                 val fetchMens = _showMens.value || (!_showMens.value && !_showWomens.value)
                 val fetchWomens = _showWomens.value || (!_showMens.value && !_showWomens.value)
 
                 if (fetchMens) {
                     val mens = RetrofitClient.ncaaService.getScoreboard("men", dateParts.first, dateParts.second, dateParts.third)
-                    mens.games?.forEach { allGames.add(it.game.toGameItem(true)) }
+                    mens.games?.forEach { allGamesApi.add(it.game.toGameEntity(true)) }
                 }
 
                 if (fetchWomens) {
                     val womens = RetrofitClient.ncaaService.getScoreboard("women", dateParts.first, dateParts.second, dateParts.third)
-                    womens.games?.forEach { allGames.add(it.game.toGameItem(false)) }
+                    womens.games?.forEach { allGamesApi.add(it.game.toGameEntity(false)) }
                 }
 
-                _gameItems.value = allGames.sortedByDescending { it.date }
+                if (allGamesApi.isNotEmpty()) {
+                    // 2. Update Database with new data
+                    gameDao.insertGames(allGamesApi)
+                    // 3. Refresh UI from Database to ensure consistency
+                    loadFromDb(dbDate)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
                 _isLoading.value = false
             }
         }
+    }
+
+    private suspend fun loadFromDb(date: String) {
+        val gamesFromDb = if (!_showMens.value && !_showWomens.value) {
+            gameDao.getGamesByDate(date)
+        } else {
+            gameDao.getGamesByDateAndGender(date, _showMens.value)
+        }
+        _gameItems.value = gamesFromDb.map { it.toGameItem() }.sortedByDescending { it.date }
     }
 
     private fun getDateParts(date: Date): Triple<String, String, String> {
@@ -290,9 +315,10 @@ class ListViewModel : ViewModel() {
         return Triple(sdfYear.format(date), sdfMonth.format(date), sdfDay.format(date))
     }
 
-    private fun NcaaGame.toGameItem(isMens: Boolean): GameItem {
+    private fun NcaaGame.toGameEntity(isMens: Boolean): GameEntity {
         val isUpcoming = gameState.lowercase() == "pre" || gameState.lowercase() == "upcoming"
-        return GameItem(
+        return GameEntity(
+            gameID = gameID,
             homeTeam = home.names.short,
             awayTeam = away.names.short,
             date = startDate,
@@ -528,8 +554,8 @@ fun GameListItem(item: GameItem, modifier: Modifier = Modifier, onViewDetails: (
 fun GameListScreenPreview() {
     HelloWorldTheme {
         val sampleItems = listOf(
-            GameItem("Notre Dame", "Duke", "03/15/2024", "75 - 70", "70", "75", true, "finished", "7:00 PM", "9:15 PM", "2nd Half", "0:00", "Notre Dame"),
-            GameItem("Virginia", "UCLA", "03/16/2024", "20 - 18", "18", "20", false, "currently being played", "1:00 PM", "TBD", "1st Quarter", "5:20", null)
+            GameItem("1", "Notre Dame", "Duke", "03/15/2024", "75 - 70", "70", "75", true, "finished", "7:00 PM", "9:15 PM", "2nd Half", "0:00", "Notre Dame"),
+            GameItem("2", "Virginia", "UCLA", "03/16/2024", "20 - 18", "18", "20", false, "currently being played", "1:00 PM", "TBD", "1st Quarter", "5:20", null)
         )
         GameListScreen(
             gameItems = sampleItems,

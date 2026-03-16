@@ -12,6 +12,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import edu.nd.pmcburne.hwapp.one.GameItem
 
+// --- Database Entity ---
 @Entity(tableName = "games")
 data class GameEntity(
     @PrimaryKey val gameID: String,
@@ -30,6 +31,7 @@ data class GameEntity(
     val winner: String?
 )
 
+// --- Data Access Object ---
 @Dao
 interface GameDao {
     @Query("SELECT * FROM games WHERE date = :date AND isMens = :isMens")
@@ -42,6 +44,7 @@ interface GameDao {
     suspend fun insertGames(games: List<GameEntity>)
 }
 
+// --- Room Database Implementation ---
 @Database(entities = [GameEntity::class], version = 1)
 abstract class GameDatabase : RoomDatabase() {
     abstract fun gameDao(): GameDao
@@ -64,6 +67,7 @@ abstract class GameDatabase : RoomDatabase() {
     }
 }
 
+// --- Mapper Extension ---
 fun GameEntity.toGameItem() = GameItem(
     gameID = gameID,
     homeTeam = homeTeam,

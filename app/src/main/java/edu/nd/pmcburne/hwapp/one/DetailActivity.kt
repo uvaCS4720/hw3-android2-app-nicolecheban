@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+// --- Activity to Display Detailed Game Information ---
 class DetailActivity : ComponentActivity() {
 
     private val viewModel: DetailViewModel by viewModels()
@@ -43,7 +44,7 @@ class DetailActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize the ViewModel with data from the Intent
+        // Initialize the ViewModel with data passed from MainActivity
         viewModel.initializeFromIntent(intent)
 
         enableEdgeToEdge()
@@ -63,6 +64,7 @@ class DetailActivity : ComponentActivity() {
                     val winner by viewModel.winner.collectAsState()
                     val isMens by viewModel.isMens.collectAsState()
 
+                    // Main Details Screen
                     GameDetailsScreen(
                         modifier = Modifier.padding(innerPadding),
                         homeTeam = homeTeam,
@@ -84,6 +86,7 @@ class DetailActivity : ComponentActivity() {
     }
 }
 
+// --- ViewModel to Manage Game Detail State ---
 class DetailViewModel : ViewModel() {
     private val _homeTeam = MutableStateFlow("")
     val homeTeam: StateFlow<String> = _homeTeam.asStateFlow()
@@ -118,12 +121,13 @@ class DetailViewModel : ViewModel() {
     private val _isMens = MutableStateFlow(true)
     val isMens: StateFlow<Boolean> = _isMens.asStateFlow()
 
+    // Extracts and processes data from Intent extras
     fun initializeFromIntent(intent: Intent) {
         _homeTeam.value = intent.getStringExtra(MainActivity.EXTRA_HOME_TEAM) ?: ""
         _awayTeam.value = intent.getStringExtra(MainActivity.EXTRA_AWAY_TEAM) ?: ""
         _date.value = intent.getStringExtra(MainActivity.EXTRA_DATE) ?: ""
         
-        // Map raw status to capitalized/formatted versions
+        // Map raw API status to user-friendly strings
         val rawStatus = intent.getStringExtra(MainActivity.EXTRA_STATUS) ?: ""
         _status.value = when (rawStatus.lowercase()) {
             "upcoming", "pre" -> "Upcoming"
@@ -157,13 +161,13 @@ class DetailViewModel : ViewModel() {
         _winner.value = if (isUpcoming) null else intent.getStringExtra(MainActivity.EXTRA_WINNER)
     }
 
+    // Formats the current period based on whether it is a Men's or Women's game
     private fun formatPeriod(period: String, isMens: Boolean): String {
         val p = period.trim()
         if (p.isEmpty() || p == "N/A" || p == "-") return "-"
         if (p.equals("final", ignoreCase = true)) return "FINAL"
         if (p.equals("halftime", ignoreCase = true)) return "Halftime"
         
-        // Try to get numeric value even if string is "1st", "2nd Half", etc.
         val periodInt = p.filter { it.isDigit() }.toIntOrNull() ?: return p
         
         val ordinal = when (periodInt) {
@@ -181,6 +185,8 @@ class DetailViewModel : ViewModel() {
         }
     }
 }
+
+// --- UI Components ---
 
 @Composable
 fun DetailRow(label: String, value: String) {
@@ -253,7 +259,7 @@ fun GameDetailsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Table Container
+            // Information Table
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -272,7 +278,7 @@ fun GameDetailsScreen(
                 DetailRow(label = "Status", value = status)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
-                // Detailed Score
+                // Score formatted as "Away Team Score \n Home Team Score"
                 val scoreText = if (homeScore == "-" || awayScore == "-") {
                     "-"
                 } else {
@@ -296,7 +302,7 @@ fun GameDetailsScreen(
             }
         }
 
-        // Back button
+        // Return button
         Button(
             onClick = onBack,
             modifier = Modifier

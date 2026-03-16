@@ -73,7 +73,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-// --- Models for API ---
+// --- Models for NCAA API Response ---
 data class NcaaResponse(
     val games: List<GameContainer>?
 )
@@ -105,7 +105,7 @@ data class TeamNames(
     val full: String
 )
 
-// --- Retrofit Service ---
+// --- Retrofit Service for NCAA API ---
 interface NcaaService {
     @GET("scoreboard/basketball-{gender}/d1/{year}/{month}/{day}")
     suspend fun getScoreboard(
@@ -127,7 +127,7 @@ object RetrofitClient {
     }
 }
 
-// --- App Model ---
+// --- Internal App Model for Games ---
 data class GameItem(
     val gameID: String = "",
     val homeTeam: String,
@@ -145,6 +145,7 @@ data class GameItem(
     val winner: String?
 )
 
+// --- Main Entry Point Activity ---
 class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_HOME_TEAM = "extra_home_team"
@@ -176,6 +177,7 @@ class MainActivity : ComponentActivity() {
                     val showMens by viewModel.showMens.collectAsState()
                     val showWomens by viewModel.showWomens.collectAsState()
 
+                    // Main List Screen UI
                     GameListScreen(
                         modifier = Modifier.padding(innerPadding),
                         gameItems = items,
@@ -212,6 +214,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// --- ViewModel managing game data from API and Room Database ---
 class ListViewModel(application: Application) : AndroidViewModel(application) {
     private val db = GameDatabase.getDatabase(application)
     private val gameDao = db.gameDao()
@@ -235,11 +238,13 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
         refresh()
     }
 
+    // Handles date change and triggers a refresh
     fun updateDate(newDate: Calendar) {
         _selectedDate.value = newDate
         refresh()
     }
 
+    // Toggle logic for gender filters
     fun toggleMens() {
         if (_showMens.value) {
             _showMens.value = false
@@ -260,6 +265,7 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
         refresh()
     }
 
+    // Main logic to fetch data from Database (Offline) then API (Online)
     fun refresh() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -267,7 +273,7 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
             val dateParts = getDateParts(cal.time)
             val dbDate = "${dateParts.second}/${dateParts.third}/${dateParts.first}"
 
-            // 1. Try to load from Database first for offline support
+            // 1. Try to load from local Database first for immediate offline support
             loadFromDb(dbDate)
 
             try {
@@ -275,6 +281,7 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
                 val fetchMens = _showMens.value || (!_showMens.value && !_showWomens.value)
                 val fetchWomens = _showWomens.value || (!_showMens.value && !_showWomens.value)
 
+                // Fetch scores from NCAA API
                 if (fetchMens) {
                     val mens = RetrofitClient.ncaaService.getScoreboard("men", dateParts.first, dateParts.second, dateParts.third)
                     mens.games?.forEach { allGamesApi.add(it.game.toGameEntity(true)) }
@@ -286,9 +293,9 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 if (allGamesApi.isNotEmpty()) {
-                    // 2. Update Database with new data
+                    // 2. Persist new scores to local Room database (replaces existing entries with same ID)
                     gameDao.insertGames(allGamesApi)
-                    // 3. Refresh UI from Database to ensure consistency
+                    // 3. Refresh UI state with the newly persisted data
                     loadFromDb(dbDate)
                 }
             } catch (e: Exception) {
@@ -299,6 +306,7 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Helper to query Room database and update state
     private suspend fun loadFromDb(date: String) {
         val gamesFromDb = if (!_showMens.value && !_showWomens.value) {
             gameDao.getGamesByDate(date)
@@ -315,6 +323,7 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
         return Triple(sdfYear.format(date), sdfMonth.format(date), sdfDay.format(date))
     }
 
+    // Mapper API -> Database Entity
     private fun NcaaGame.toGameEntity(isMens: Boolean): GameEntity {
         val isUpcoming = gameState.lowercase() == "pre" || gameState.lowercase() == "upcoming"
         return GameEntity(
@@ -340,6 +349,8 @@ class ListViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
+// --- UI Components ---
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameListScreen(
@@ -357,7 +368,7 @@ fun GameListScreen(
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     
-    // Use UTC for the DatePicker state to avoid timezone offset issues when converting back to Calendar
+    // Manage DatePicker state
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = selectedDate.timeInMillis + TimeZone.getDefault().getOffset(selectedDate.timeInMillis)
     )
@@ -366,6 +377,7 @@ fun GameListScreen(
         modifier = modifier.padding(16.dp).fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Header Row
         Row(
             modifier = Modifier.fillMaxWidth().height(48.dp),
             horizontalArrangement = Arrangement.Center,
@@ -407,7 +419,7 @@ fun GameListScreen(
 
         Spacer(Modifier.height(8.dp))
 
-        // --- Filters Section ---
+        // Filters Section
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
@@ -433,6 +445,7 @@ fun GameListScreen(
             )
         }
 
+        // Handle DatePicker Dialog
         if (showDatePicker) {
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
@@ -440,8 +453,6 @@ fun GameListScreen(
                     TextButton(onClick = {
                         val selected = datePickerState.selectedDateMillis
                         if (selected != null) {
-                            // DatePicker selectedDateMillis is UTC midnight. 
-                            // Convert it to local timezone Calendar.
                             val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
                                 timeInMillis = selected
                             }
@@ -467,6 +478,7 @@ fun GameListScreen(
 
         Spacer(Modifier.height(16.dp))
 
+        // Main List Content
         if (isLoading && gameItems.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth().weight(1f),
